@@ -17,8 +17,7 @@ class JoseHeader extends JsonObject {
 
   /// Constructs a [JoseHeader] from a base64 [encodedString] representation of
   /// the json string
-  JoseHeader.fromBase64EncodedString(String encodedString)
-      : super.decode(encodedString);
+  JoseHeader.fromBase64EncodedString(String encodedString) : super.decode(encodedString);
 
   /// Identifies the cryptographic algorithm used to secure a [JsonWebSignature]
   /// or to encrypt or determine the value of a Content Encryption Key with
@@ -32,8 +31,7 @@ class JoseHeader extends JsonObject {
 
   /// The public key that corresponds to the key used to digitally sign the
   /// [JsonWebSignature] or encrypt the [JsonWebEncryption].
-  JsonWebKey? get jsonWebKey =>
-      getTyped('jwk', factory: (v) => JsonWebKey.fromJson(v));
+  JsonWebKey? get jsonWebKey => getTyped('jwk', factory: (v) => JsonWebKey.fromJson(v));
 
   /// A hint indicating which key was used to secure the [JsonWebSignature] or
   /// encrypt the [JsonWebEncryption].
@@ -111,16 +109,14 @@ abstract class JoseObject {
   /// [JsonWebSignature] objects do not have a shared unprotected header
   final JsonObject? sharedUnprotectedHeader;
 
-  JoseObject(this.data, this.recipients,
-      {this.sharedUnprotectedHeader, this.sharedProtectedHeader});
+  JoseObject(this.data, this.recipients, {this.sharedUnprotectedHeader, this.sharedProtectedHeader});
 
   /// Constructs a [JsonWebSignature] or [JsonWebEncryption] from its json
   /// representation.
   factory JoseObject.fromJson(Map<String, dynamic> json) {
     if (json.containsKey('payload')) return JsonWebSignature.fromJson(json);
     if (json.containsKey('ciphertext')) return JsonWebEncryption.fromJson(json);
-    throw ArgumentError.value(
-        json, 'json', 'Not a valid `JsonWebSignature` or `JsonWebEncryption`');
+    throw ArgumentError.value(json, 'json', 'Not a valid `JsonWebSignature` or `JsonWebEncryption`');
   }
 
   /// Constructs a [JsonWebSignature] or [JsonWebEncryption] from its compact
@@ -133,8 +129,8 @@ abstract class JoseObject {
       case 5:
         return JsonWebEncryption.fromCompactSerialization(serialization);
       default:
-        throw ArgumentError.value(serialization, 'serialization',
-            'Not a valid `JsonWebSignature` or `JsonWebEncryption`');
+        throw ArgumentError.value(
+            serialization, 'serialization', 'Not a valid `JsonWebSignature` or `JsonWebEncryption`');
     }
   }
 
@@ -158,13 +154,9 @@ abstract class JoseObject {
   /// header parameters and the per-recipient header parameters that are common.
   /// In case of a single recipient, this contains all header parameters.
   JoseHeader get commonHeader {
-    var sharedHeader = safeUnion(
-        [sharedProtectedHeader?.toJson(), sharedUnprotectedHeader?.toJson()]);
-    return JoseHeader.fromJson(commonUnion(recipients.map((r) => safeUnion([
-          sharedHeader,
-          r.protectedHeader?.toJson(),
-          r.unprotectedHeader?.toJson()
-        ]))));
+    var sharedHeader = safeUnion([sharedProtectedHeader?.toJson(), sharedUnprotectedHeader?.toJson()]);
+    return JoseHeader.fromJson(commonUnion(
+        recipients.map((r) => safeUnion([sharedHeader, r.protectedHeader?.toJson(), r.unprotectedHeader?.toJson()]))));
   }
 
   /// The JOSE header parameters that are integrity protected
@@ -202,11 +194,17 @@ abstract class JoseObject {
     JsonWebKeyStore keyStore, {
     List<String>? allowedAlgorithms,
   }) async {
+    print(recipients);
     for (var r in recipients) {
-      var header = _headerFor(r);
+      print('====================');
+      print(r);
+      final header = _headerFor(r);
+      print(header);
+      print(header.algorithm);
 
-      if (allowedAlgorithms != null &&
-          !allowedAlgorithms.contains(header.algorithm)) {
+      print(allowedAlgorithms);
+
+      if (allowedAlgorithms != null && !allowedAlgorithms.contains(header.algorithm)) {
         continue;
       }
 
@@ -214,6 +212,8 @@ abstract class JoseObject {
         continue;
       }
 
+      print(keyStore);
+      print('Are we a JsonWebSignature? ${this is JsonWebSignature}');
       await for (var key in keyStore.findJsonWebKeys(
         header,
         this is JsonWebSignature
@@ -223,7 +223,12 @@ abstract class JoseObject {
                 : 'unwrapKey',
       )) {
         try {
+          print(key);
+          print(header);
+          print(r);
           var payload = getPayloadFor(key, header, r);
+
+          print(payload);
 
           if (payload != null) {
             return JosePayload(payload, _protectedHeaderFor(r));
@@ -245,18 +250,12 @@ abstract class JoseObject {
   );
 
   JoseHeader _headerFor(JoseRecipient recipient) {
-    return JoseHeader.fromJson(safeUnion([
-      sharedProtectedHeader?.toJson(),
-      sharedUnprotectedHeader?.toJson(),
-      recipient.header.toJson()
-    ]));
+    return JoseHeader.fromJson(
+        safeUnion([sharedProtectedHeader?.toJson(), sharedUnprotectedHeader?.toJson(), recipient.header.toJson()]));
   }
 
   JoseHeader _protectedHeaderFor(JoseRecipient recipient) {
-    return JoseHeader.fromJson(safeUnion([
-      sharedProtectedHeader?.toJson(),
-      recipient.protectedHeader?.toJson()
-    ]));
+    return JoseHeader.fromJson(safeUnion([sharedProtectedHeader?.toJson(), recipient.protectedHeader?.toJson()]));
   }
 }
 
@@ -288,10 +287,8 @@ abstract class JoseRecipient {
   /// For [JsonWebEncryption] with direct encryption, this will be an empty list.
   final List<int> data;
 
-  JoseRecipient(
-      {required this.data, this.protectedHeader, this.unprotectedHeader})
-      : header = JoseHeader.fromJson(safeUnion(
-            [protectedHeader?.toJson(), unprotectedHeader?.toJson()]));
+  JoseRecipient({required this.data, this.protectedHeader, this.unprotectedHeader})
+      : header = JoseHeader.fromJson(safeUnion([protectedHeader?.toJson(), unprotectedHeader?.toJson()]));
 
   Map<String, dynamic> toJson();
 }
@@ -372,12 +369,10 @@ abstract class JoseObjectBuilder<T extends JoseObject> {
   set mediaType(String? v) => _protectedHeaderParameters['cty'] = v;
 
   /// Returns the protected header parameters as a [JoseHeader] object
-  JoseHeader get protectedHeader =>
-      JoseHeader.fromJson(_protectedHeaderParameters);
+  JoseHeader get protectedHeader => JoseHeader.fromJson(_protectedHeaderParameters);
 
   /// Returns the payload and protected headers as a [JosePayload] object
-  JosePayload? get payload =>
-      data == null ? null : JosePayload(data!, protectedHeader);
+  JosePayload? get payload => data == null ? null : JosePayload(data!, protectedHeader);
 
   /// Adds a [key] and [algorithm] to sign or encrypt this object
   ///
