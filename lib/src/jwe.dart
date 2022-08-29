@@ -1,6 +1,8 @@
 /// [JSON Web Encryption](https://tools.ietf.org/html/rfc7516)
 library jose.jwe;
 
+import 'dart:math';
+
 import 'jose.dart';
 import 'util.dart';
 import 'jwk.dart';
@@ -38,22 +40,16 @@ class JsonWebEncryption extends JoseObject {
     this.initializationVector = const [],
     this.additionalAuthenticatedData,
     this.authenticationTag = const [],
-  }) : super(data, recipients,
-            sharedProtectedHeader: protectedHeader,
-            sharedUnprotectedHeader: unprotectedHeader);
+  }) : super(data, recipients, sharedProtectedHeader: protectedHeader, sharedUnprotectedHeader: unprotectedHeader);
 
   /// Constructs a [JsonWebEncryption] from its compact serialization
   factory JsonWebEncryption.fromCompactSerialization(String serialization) {
     var parts = serialization.split('.');
     if (parts.length != 5) {
-      throw ArgumentError.value(
-          serialization, 'Compact serialization should have 5 parts.');
+      throw ArgumentError.value(serialization, 'Compact serialization should have 5 parts.');
     }
-    return JsonWebEncryption._(
-        decodeBase64EncodedBytes(parts[3]),
-        List.unmodifiable([
-          _JweRecipient._(encryptedKey: decodeBase64EncodedBytes(parts[1]))
-        ]),
+    return JsonWebEncryption._(decodeBase64EncodedBytes(parts[3]),
+        List.unmodifiable([_JweRecipient._(encryptedKey: decodeBase64EncodedBytes(parts[1]))]),
         protectedHeader: JsonObject.decode(parts[0]),
         initializationVector: decodeBase64EncodedBytes(parts[2]),
         authenticationTag: decodeBase64EncodedBytes(parts[4]));
@@ -66,37 +62,30 @@ class JsonWebEncryption extends JoseObject {
           decodeBase64EncodedBytes(json['ciphertext']),
           List.unmodifiable(json.containsKey('recipients')
               ? (json['recipients'] as List).map((v) => _JweRecipient._(
-                  header: JsonObject.from(v['header']),
-                  encryptedKey: decodeBase64EncodedBytes(v['encrypted_key'])))
+                  header: JsonObject.from(v['header']), encryptedKey: decodeBase64EncodedBytes(v['encrypted_key'])))
               : [
                   _JweRecipient._(
                       header: JsonObject.from(json['header']),
-                      encryptedKey:
-                          decodeBase64EncodedBytes(json['encrypted_key']))
+                      encryptedKey: decodeBase64EncodedBytes(json['encrypted_key']))
                 ]),
           protectedHeader: JsonObject.decode(json['protected']),
           unprotectedHeader: JsonObject.from(json['unprotected']),
           initializationVector: decodeBase64EncodedBytes(json['iv']),
-          additionalAuthenticatedData: json['aad'] == null
-              ? null
-              : decodeBase64EncodedBytes(json['aad']),
+          additionalAuthenticatedData: json['aad'] == null ? null : decodeBase64EncodedBytes(json['aad']),
           authenticationTag: decodeBase64EncodedBytes(json['tag']),
         );
 
   @override
   String toCompactSerialization() {
     if (recipients.length != 1) {
-      throw StateError(
-          'Compact serialization does not support multiple recipients');
+      throw StateError('Compact serialization does not support multiple recipients');
     }
     if (sharedUnprotectedHeader != null) {
-      throw StateError(
-          'Compact serialization does not support shared unprotected header');
+      throw StateError('Compact serialization does not support shared unprotected header');
     }
     var recipient = recipients.first;
     if (recipient.unprotectedHeader != null) {
-      throw StateError(
-          'Compact serialization does not support unprotected header parameters');
+      throw StateError('Compact serialization does not support unprotected header parameters');
     }
     return '${sharedProtectedHeader!.toBase64EncodedString()}.'
         '${encodeBase64EncodedBytes(recipient.data)}.'
@@ -141,9 +130,7 @@ class JsonWebEncryption extends JoseObject {
     if (header.encryptionAlgorithm == 'none') {
       throw JoseException('Encryption algorithm cannot be `none`');
     }
-    var cek = header.algorithm == 'dir'
-        ? key
-        : key.unwrapKey(recipient.data, algorithm: header.algorithm);
+    var cek = header.algorithm == 'dir' ? key : key.unwrapKey(recipient.data, algorithm: header.algorithm);
     return cek.decrypt(data,
         initializationVector: initializationVector,
         additionalAuthenticatedData: Uint8List.fromList(aad.codeUnits),
@@ -157,10 +144,8 @@ class _JweRecipient extends JoseRecipient {
       : super(unprotectedHeader: header, data: encryptedKey);
 
   @override
-  Map<String, dynamic> toJson() => {
-        'header': unprotectedHeader?.toJson(),
-        'encrypted_key': encodeBase64EncodedBytes(data)
-      };
+  Map<String, dynamic> toJson() =>
+      {'header': unprotectedHeader?.toJson(), 'encrypted_key': encodeBase64EncodedBytes(data)};
 }
 
 /// Builder for [JsonWebSignature]
@@ -193,20 +178,16 @@ class JsonWebEncryptionBuilder extends JoseObjectBuilder<JsonWebEncryption> {
     var compact = recipients.length == 1 && additionalAuthenticatedData == null;
 
     var cek = JsonWebKey.generate(encryptionAlgorithm);
-    var sharedUnprotectedHeaderParams = <String, dynamic>{
-      'enc': encryptionAlgorithm
-    };
+    var sharedUnprotectedHeaderParams = <String, dynamic>{'enc': encryptionAlgorithm};
 
     var _recipients = recipients.map((r) {
       var key = r['_jwk'] as JsonWebKey;
       var algorithm = r['alg'] ?? key.algorithmForOperation('wrapKey') ?? 'dir';
       if (algorithm == 'dir') {
         if (recipients.length > 1) {
-          throw StateError(
-              'JWE can only have one recipient when using direct encryption with a shared symmetric key.');
+          throw StateError('JWE can only have one recipient when using direct encryption with a shared symmetric key.');
         }
-        cek =
-            JsonWebKey.fromJson({'alg': encryptionAlgorithm, ...key.toJson()});
+        cek = JsonWebKey.fromJson({'alg': encryptionAlgorithm, ...key.toJson()});
       }
       var encryptedKey = algorithm == 'dir'
           ? const <int>[]
@@ -224,25 +205,31 @@ class JsonWebEncryptionBuilder extends JoseObjectBuilder<JsonWebEncryption> {
       }
 
       return _JweRecipient._(
-          encryptedKey: encryptedKey,
-          header: compact ? null : JsonObject.from(unprotectedHeaderParams));
+          encryptedKey: encryptedKey, header: compact ? null : JsonObject.from(unprotectedHeaderParams));
     }).toList();
 
     var protectedHeader = payload.protectedHeader;
     if (compact) {
-      protectedHeader = JsonObject.from(safeUnion(
-          [protectedHeader?.toJson(), sharedUnprotectedHeaderParams]));
+      protectedHeader = JsonObject.from(safeUnion([protectedHeader?.toJson(), sharedUnprotectedHeaderParams]));
     }
     var aad = protectedHeader!.toBase64EncodedString();
     if (additionalAuthenticatedData != null) {
       aad += '.${String.fromCharCodes(additionalAuthenticatedData!)}';
     }
-    var encryptedData = cek.encrypt(data!,
-        additionalAuthenticatedData: Uint8List.fromList(aad.codeUnits));
+
+    var iv = (encryptionAlgorithm != null && encryptionAlgorithm!.contains(RegExp('A[0-9][0-9][0-9]GCM')))
+        ? Uint8List.fromList(List.generate(12, (_) => Random.secure().nextInt(256)))
+        : null;
+
+    var encryptedData = cek.encrypt(
+      data!,
+      initializationVector: iv,
+      additionalAuthenticatedData: Uint8List.fromList(aad.codeUnits),
+    );
+
     return JsonWebEncryption._(encryptedData.data, _recipients,
         protectedHeader: protectedHeader,
-        unprotectedHeader:
-            compact ? null : JsonObject.from(sharedUnprotectedHeaderParams),
+        unprotectedHeader: compact ? null : JsonObject.from(sharedUnprotectedHeaderParams),
         initializationVector: encryptedData.initializationVector!,
         authenticationTag: encryptedData.authenticationTag!,
         additionalAuthenticatedData: additionalAuthenticatedData);
