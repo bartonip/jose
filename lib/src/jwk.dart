@@ -423,22 +423,16 @@ class JsonWebKeyStore {
   /// Find [JsonWebKey]s for a [JoseObject] with header [header].
   ///
   /// See also [https://tools.ietf.org/html/rfc7515#appendix-D]
-  Stream<JsonWebKey?> findJsonWebKeys(JoseHeader header, String operation) {
-    if (header.algorithm == 'none') return Stream.fromIterable([null]);
-    return _allKeys(header).where(
+  Future<List<JsonWebKey?>> findJsonWebKeys(JoseHeader header, String operation) async {
+    if (header.algorithm == 'none') return [null];
+    return (await _allKeys(header)).where(
       (key) => _isValidKeyFor(key, header, operation),
-    );
+    ).toList().toList();
   }
 
-  Stream<JsonWebKey> _allKeys(JoseHeader header) async* {
-    // The key provided by the 'jwk'
-    if (header.jsonWebKey != null) yield header.jsonWebKey!;
-    // Other applicable keys available to the application
-    yield* Stream.fromIterable(_keys);
+  Future<List<JsonWebKey>> _allKeys(JoseHeader header) async {
+    
 
-    for (var s in _keySets) {
-      yield* Stream.fromIterable(s.keys);
-    }
 /*
     // TODO trust keys from header?
     // Keys referenced by the 'jku'
@@ -449,9 +443,19 @@ class JsonWebKeyStore {
     // TODO
 */
     // Other applicable keys available to the application
-    for (var url in _keySetUrls) {
-      yield* _keysFromSet(url).where((v) => v != null).cast();
+    final result = _keys.map((e) => e).toList();
+
+    for (var s in _keySets) {
+      result.addAll(s.keys);
     }
+
+    for (var url in _keySetUrls) {
+       result.addAll(await _keysFromSet(url));
+    }
+
+    return result;
+
+    return result;
   }
 
   bool _isValidKeyFor(JsonWebKey? key, JoseHeader header, String operation) {
@@ -468,9 +472,9 @@ class JsonWebKeyStore {
         key.usableForOperation(operation);
   }
 
-  Stream<JsonWebKey?> _keysFromSet(Uri uri) async* {
+  Future<List<JsonWebKey>> _keysFromSet(Uri uri) async {
     var set = await JsonWebKeySetLoader.current.read(uri);
-    yield* Stream.fromIterable(set.keys);
+    return set.keys;
   }
 }
 

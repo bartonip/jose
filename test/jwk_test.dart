@@ -182,18 +182,18 @@ void main() {
           ..addKeySetUrl(Uri.parse('https://appsup.be/keys.json'));
 
         await JsonWebKeySetLoader.runZoned(() async {
-          var key = await store
+          var key = (await store
               .findJsonWebKeys(
-                  JoseHeader.fromJson({'kid': 'key1', 'alg': 'A128KW'}), 'sign')
-              .first;
+                  JoseHeader.fromJson({'kid': 'key1', 'alg': 'A128KW'}), 'sign'))
+              [0];
 
-          expect(key?.keyType, 'oct');
-          expect(key?.algorithm, 'A128KW');
+          expect(key.keyType, 'oct');
+          expect(key.algorithm, 'A128KW');
 
-          key = await store
+          key = (await store
               .findJsonWebKeys(
-                  JoseHeader.fromJson({'kid': 'key1', 'alg': 'A128KW'}), 'sign')
-              .first;
+                  JoseHeader.fromJson({'kid': 'key1', 'alg': 'A128KW'}), 'sign'))[0]
+              ;
         }, loader: DefaultJsonWebKeySetLoader(httpClient: client));
       });
     });

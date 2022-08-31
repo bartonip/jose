@@ -212,28 +212,31 @@ abstract class JoseObject {
         continue;
       }
 
-      print(keyStore);
+      print('keyStore $keyStore');
       print('Are we a JsonWebSignature? ${this is JsonWebSignature}');
-      await for (var key in keyStore.findJsonWebKeys(
+      final keys = await keyStore.findJsonWebKeys(
         header,
         this is JsonWebSignature
             ? 'verify'
             : header.algorithm == 'dir'
                 ? 'decrypt'
                 : 'unwrapKey',
-      )) {
+      );
+      print('KEYS $keys');
+      for (var key in keys) {
         try {
-          print(key);
-          print(header);
-          print(r);
+          print('key $key');
+          print('header $header');
+          print('r $r');
           var payload = getPayloadFor(key, header, r);
 
-          print(payload);
+          print('payload $payload');
 
           if (payload != null) {
             return JosePayload(payload, _protectedHeaderFor(r));
           }
         } catch (e) {
+          print('penis' * 100);
           // ignore
         }
       }
