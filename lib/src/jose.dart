@@ -194,15 +194,8 @@ abstract class JoseObject {
     JsonWebKeyStore keyStore, {
     List<String>? allowedAlgorithms,
   }) async {
-    print(recipients);
     for (var r in recipients) {
-      print('====================');
-      print(r);
       final header = _headerFor(r);
-      print(header);
-      print(header.algorithm);
-
-      print(allowedAlgorithms);
 
       if (allowedAlgorithms != null && !allowedAlgorithms.contains(header.algorithm)) {
         continue;
@@ -212,8 +205,6 @@ abstract class JoseObject {
         continue;
       }
 
-      print('keyStore $keyStore');
-      print('Are we a JsonWebSignature? ${this is JsonWebSignature}');
       final keys = await keyStore.findJsonWebKeys(
         header,
         this is JsonWebSignature
@@ -222,22 +213,17 @@ abstract class JoseObject {
                 ? 'decrypt'
                 : 'unwrapKey',
       );
-      print('KEYS $keys');
       for (var key in keys) {
         try {
-          print('key $key');
-          print('header $header');
-          print('r $r');
           var payload = getPayloadFor(key, header, r);
 
-          print('payload $payload');
 
           if (payload != null) {
             return JosePayload(payload, _protectedHeaderFor(r));
           }
         } catch (e) {
-          print('penis' * 100);
           // ignore
+          print(e);
         }
       }
     }
