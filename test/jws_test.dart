@@ -197,7 +197,7 @@ void main() {
     });
   });
   group('Special algorithms JWS', () {
-    test('Signing with `none`', () async {
+    test('Signing with "none"', () async {
       var payload = 'I am disguised';
       var builder = JsonWebSignatureBuilder()..content = payload;
 
