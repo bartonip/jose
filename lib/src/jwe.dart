@@ -80,11 +80,11 @@ class JsonWebEncryption extends JoseObject {
     if (recipients.length != 1) {
       throw StateError('Compact serialization does not support multiple recipients');
     }
-    if (sharedUnprotectedHeader != null) {
+    if (sharedUnprotectedHeader != null || sharedProtectedHeader?.toJson() == {}) {
       throw StateError('Compact serialization does not support shared unprotected header');
     }
     var recipient = recipients.first;
-    if (recipient.unprotectedHeader != null) {
+    if (recipient.unprotectedHeader != null || recipient.unprotectedHeader?.toJson() == {}) {
       throw StateError('Compact serialization does not support unprotected header parameters');
     }
     return '${sharedProtectedHeader!.toBase64EncodedString()}.'
